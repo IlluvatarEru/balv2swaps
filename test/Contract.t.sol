@@ -12,15 +12,14 @@ contract ContractTest is Test {
     }
 
     function testExample() public {
-        uint256 amountIn=21665956598887613694231;
-        uint256 amountOut=1510168986908;
+        uint256 amountIn=719650005876952115146;
+        uint256 amountOut=47788554279;
         
         address trader=0x9A315BdF513367C0377FB36545857d12e85813Ef;
         vm.startPrank(trader);  
 
         IERC20 erc20 = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
-        //erc20.approve(trader,100000);
-        //15,108,181
+        erc20.approve(trader,amountIn);
         erc20.approve(vaultAddress,amountIn);
 
         IVault vault = IVault(vaultAddress);
@@ -40,12 +39,16 @@ contract ContractTest is Test {
             payable(trader),
             false
         );  
-        console.log("B TS",block.timestamp);
-        console.log("B NB",block.number);
+
+        //block = 15147341
+        console.log("Block Timestamp",block.timestamp);
+        console.log("Block Number",block.number);
         uint256 amountOutReal= vault.swap(singleSwap,funds,1,block.timestamp+10000);
         vm.stopPrank();
         console.log("amountOutReal", amountOutReal);
-        assertTrue(amountOutReal>0);
+        console.log("amountOut Comptued", amountOut);
+        console.log("amountOut Diff", amountOutReal-amountOut);
+        assertTrue(amountOutReal-amountOut==0);
     }
 
 }

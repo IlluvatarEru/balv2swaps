@@ -60,30 +60,4 @@ contract TestSwap {
         owner = msg.sender;
     }
 
-    function trade() public returns (uint256) {
-
-        IERC20 erc20 = IERC20(0x41e5560054824eA6B0732E656E3Ad64E20e94E45);
-        erc20.approve(vaultAddress,100000);
-
-        IVault vault = IVault(vaultAddress);
-
-        SingleSwap memory s = SingleSwap(
-          0x760afd4460089edbb77f71149f6fe1d7554c545000010000000000000000011d,
-          SwapKind.GIVEN_IN,
-          IAsset(0x41e5560054824eA6B0732E656E3Ad64E20e94E45),
-          IAsset(0x89Ab32156e46F46D02ade3FEcbe5Fc4243B9AAeD),
-          100000,
-          '0x'
-        );
-
-        FundManagement memory f = FundManagement(
-            address(this),
-            false,
-            payable(address(this)),
-            false
-        );
-
-        return vault.swap(s,f,100000,block.timestamp+10000);
-    }
-
 }
