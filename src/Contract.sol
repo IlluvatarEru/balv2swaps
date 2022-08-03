@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 
-interface IERC20 {
+interface IERC201 {
     function approve(address spender, uint256 amount) external returns (bool);
 }
 
@@ -21,8 +21,8 @@ struct SingleSwap {
 
 struct SwapRequest {
         SwapKind kind;
-        IERC20 tokenIn;
-        IERC20 tokenOut;
+        IERC201 tokenIn;
+        IERC201 tokenOut;
         uint256 amount;
         // Misc data
         bytes32 poolId;
