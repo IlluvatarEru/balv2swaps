@@ -6,10 +6,9 @@ import "../src/Contract.sol";
 import "../src/LogExpMath.sol";
 import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 
-
 contract ContractTest is Test {
-    TestSwap c ;
-    uint256 ONE=1e18;
+    TestSwap c;
+    uint256 ONE = 1e18;
     uint256 TWO = 2 * ONE;
     uint256 FOUR = 4 * ONE;
     uint256 MAX_POW_RELATIVE_ERROR = 10000; // 10^(-14)
@@ -21,17 +20,24 @@ contract ContractTest is Test {
         c = new TestSwap();
     }
 
-   function _computeScalingFactor(address token) internal view returns (uint256) {
-
+    function _computeScalingFactor(address token)
+        internal
+        view
+        returns (uint256)
+    {
         // Tokens that don't implement the `decimals` method are not supported.
         uint256 tokenDecimals = ERC20(token).decimals();
 
         // Tokens with more than 18 decimals are not supported.
-        uint256 decimalsDifference = 18- tokenDecimals;
+        uint256 decimalsDifference = 18 - tokenDecimals;
         return ONE * 10**decimalsDifference;
     }
 
-    function _upscale(uint256 amount, uint256 scalingFactor) internal view returns (uint256) {
+    function _upscale(uint256 amount, uint256 scalingFactor)
+        internal
+        view
+        returns (uint256)
+    {
         // Upscale rounding wouldn't necessarily always go in the same direction: in a swap for example the balance of
         // token in should be rounded up, and that of token out rounded down. This is the only place where we round in
         // the same direction for all amounts, as the impact of this rounding is expected to be minimal (and there's no
@@ -62,7 +68,6 @@ contract ContractTest is Test {
     }
 
     function divDown(uint256 a, uint256 b) internal view returns (uint256) {
-
         if (a == 0) {
             return 0;
         } else {
@@ -73,7 +78,6 @@ contract ContractTest is Test {
     }
 
     function divUp(uint256 a, uint256 b) internal view returns (uint256) {
-
         if (a == 0) {
             return 0;
         } else {
@@ -105,12 +109,12 @@ contract ContractTest is Test {
             return mulDown(square, square);
         } else {
             uint256 raw = LogExpMath.pow(x, y);
-            uint256 maxError = mulUp(raw, MAX_POW_RELATIVE_ERROR)+ 1;
+            uint256 maxError = mulUp(raw, MAX_POW_RELATIVE_ERROR) + 1;
 
             if (raw < maxError) {
                 return 0;
             } else {
-                return raw- maxError;
+                return raw - maxError;
             }
         }
     }
@@ -131,9 +135,9 @@ contract ContractTest is Test {
             return mulUp(square, square);
         } else {
             uint256 raw = LogExpMath.pow(x, y);
-            uint256 maxError = mulUp(raw, MAX_POW_RELATIVE_ERROR) +1;
+            uint256 maxError = mulUp(raw, MAX_POW_RELATIVE_ERROR) + 1;
 
-            return raw+ maxError;
+            return raw + maxError;
         }
     }
 
@@ -147,62 +151,93 @@ contract ContractTest is Test {
         return (x < ONE) ? (ONE - x) : 0;
     }
 
-
-    function computeBalv(uint256 amount, uint256 swapFeePercentage, uint256 reserveIn,uint256 reserveOut, uint256 weightIn, uint256 weightOut) public returns (uint256) {
+    function computeBalv(
+        uint256 amount,
+        uint256 swapFeePercentage,
+        uint256 reserveIn,
+        uint256 reserveOut,
+        uint256 weightIn,
+        uint256 weightOut
+    ) public returns (uint256) {
         console.log("reserveIn", reserveIn);
-        console.log("reserveOut",reserveOut);
-        console.log("reserveIn - _upscale",_upscale(reserveIn,_computeScalingFactor(0x0F5D2fB29fb7d3CFeE444a200298f468908cC942)));
-        console.log("reserveOut - _upscale",_upscale(reserveOut,_computeScalingFactor(0x3845badAde8e6dFF049820680d1F14bD3903a5d0)));
-        console.log("weightIn",weightIn);
-        console.log("weightOut",weightOut);
-        console.log("amount",amount);
+        console.log("reserveOut", reserveOut);
+        console.log(
+            "reserveIn - _upscale",
+            _upscale(
+                reserveIn,
+                _computeScalingFactor(
+                    0x0F5D2fB29fb7d3CFeE444a200298f468908cC942
+                )
+            )
+        );
+        console.log(
+            "reserveOut - _upscale",
+            _upscale(
+                reserveOut,
+                _computeScalingFactor(
+                    0x3845badAde8e6dFF049820680d1F14bD3903a5d0
+                )
+            )
+        );
+        console.log("weightIn", weightIn);
+        console.log("weightOut", weightOut);
+        console.log("amount", amount);
         uint256 feeAmount = mulUp(amount, swapFeePercentage);
-        console.log("feeAmount",feeAmount);
-	    amount = amount - feeAmount;
-        console.log("amount post fee",amount);
+        console.log("feeAmount", feeAmount);
+        amount = amount - feeAmount;
+        console.log("amount post fee", amount);
         uint256 denominator = reserveIn + amount;
         uint256 base = divUp(reserveIn, denominator);
-        uint256 exponent = divDown(weightIn,weightOut);
+        uint256 exponent = divDown(weightIn, weightOut);
         uint256 power = powUp(base, exponent);
         uint256 c = complement(power);
-        uint256 result = mulDown(reserveOut,c);
+        uint256 result = mulDown(reserveOut, c);
         /*uint256 denominator=reserveIn + amount;
         uint256 base = (ONE*reserveIn)/denominator;
         uint256 exponent = weightIn/weightOut;
         uint256 power = (base)**(exponent);
         uint256 complement = ONE-power;
         uint256 result =  reserveOut * complement;*/
-        console.log("denominator",denominator);
-        console.log("base",base);
-        console.log("exponent",exponent);
-        console.log("power",power);
-        console.log("complement",c);
-        console.log("result",result);
+        console.log("denominator", denominator);
+        console.log("base", base);
+        console.log("exponent", exponent);
+        console.log("power", power);
+        console.log("complement", c);
+        console.log("result", result);
         return result;
     }
 
     function testExample() public {
-        uint256 amountIn=9252920066807548690510;
-        uint256 amountOutExpected=6825578890111445640730;
-        
-        address trader=0xe1498a9Ef5c6Aa51790a642F70c31238326b1724;
-        vm.startPrank(trader);  
+        uint256 amountIn = 9252920066807548690510;
+        uint256 amountOutExpected = 6825578890111445640730;
+
+        address trader = 0xe1498a9Ef5c6Aa51790a642F70c31238326b1724;
+        vm.startPrank(trader);
 
         address assetIn = 0x0F5D2fB29fb7d3CFeE444a200298f468908cC942;
         IERC201 erc20 = IERC201(assetIn);
         //erc20.approve(trader,100000);
         //15258983
-        erc20.approve(vaultAddress,amountIn);
+        erc20.approve(vaultAddress, amountIn);
 
         IVault vault = IVault(vaultAddress);
-
+        address[] memory a;
+        uint256[] memory b;
+        uint256 c;
+        (a, b, c) = vault.getPoolTokens(
+            0x5757B37098d65b097cBcb78E22ae862817a827020001000000000000000002d2
+        );
+        for (uint i=0; i<3;i++){
+            console.log(a[i]);
+            console.log(b[i]);
+        }
         SingleSwap memory singleSwap = SingleSwap(
-          0x5757b37098d65b097cbcb78e22ae862817a827020001000000000000000002d2,
-          SwapKind.GIVEN_IN,
-          IAsset(assetIn),
-          IAsset(0x3845badAde8e6dFF049820680d1F14bD3903a5d0),
-          amountIn,
-          '0x'
+            0x5757b37098d65b097cbcb78e22ae862817a827020001000000000000000002d2,
+            SwapKind.GIVEN_IN,
+            IAsset(assetIn),
+            IAsset(0x3845badAde8e6dFF049820680d1F14bD3903a5d0),
+            amountIn,
+            "0x"
         );
 
         FundManagement memory funds = FundManagement(
@@ -211,18 +246,29 @@ contract ContractTest is Test {
             payable(trader),
             false
         );
-        amountIn=_upscale(amountIn,_computeScalingFactor(assetIn));
-        uint256 recomputed = computeBalv(amountIn,5000000000000000, 244922562514107359335879,188404902510508590493405, 200000000000000000, 200000000000000000);
+        amountIn = _upscale(amountIn, _computeScalingFactor(assetIn));
+        uint256 recomputed = computeBalv(
+            amountIn,
+            5000000000000000,
+            244922562514107359335879,
+            188404902510508590493405,
+            200000000000000000,
+            200000000000000000
+        );
 
-        console.log("B TS",block.timestamp);
-        console.log("B NB",block.number);
-        uint256 amountOutReal= vault.swap(singleSwap,funds,1,block.timestamp+10000);
+        console.log("B TS", block.timestamp);
+        console.log("B NB", block.number);
+        uint256 amountOutReal = vault.swap(
+            singleSwap,
+            funds,
+            1,
+            block.timestamp + 10000
+        );
         vm.stopPrank();
         console.log("amountOutReal", amountOutReal);
         console.log("amountOutExpected", amountOutExpected);
         console.log("recomputed", recomputed);
-        console.log("Diff", amountOutExpected-amountOutReal);
-        assertTrue(amountOutReal>0);
+        console.log("Diff", amountOutExpected - amountOutReal);
+        assertTrue(amountOutReal > 0);
     }
-
 }

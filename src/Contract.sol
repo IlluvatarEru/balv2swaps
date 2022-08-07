@@ -47,8 +47,11 @@ interface IVault {
         uint256 limit,
         uint256 deadline
     ) external payable returns (uint256);
+    
+    function getPoolTokens(bytes32 poolId) external returns (address[] memory, uint256[] memory, uint256);
 
 }
+
 
 address constant vaultAddress = 0xBA12222222228d8Ba445958a75a0704d566BF2C8;
 
