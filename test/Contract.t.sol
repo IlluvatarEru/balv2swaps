@@ -16,15 +16,15 @@ contract ContractTest is Test {
     uint256 MAX_POW_RELATIVE_ERROR = 10000; // 10^(-14)
 
     // Minimum base for the power function when the exponent is 'free' (larger than ONE).
-    address ASSET_IN = 0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5;
-    address ASSET_OUT = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
-    bytes32 POOL_ID = 0xc45d42f801105e861e86658648e3678ad7aa70f900010000000000000000011e;
-    address POOL_ADDRESS = 0xc45D42f801105e861e86658648e3678aD7aa70f9;
-    address TRADER = 0x4E249375C7C6225cEe6e7AA099D9c367933E86D9;
-    uint256 RESERVE_IN =1326673419288719;
-    uint256 RESERVE_OUT=8402147567138834432425114;
-    uint256 AMOUNT_IN = 1190769574605;
-    uint256 amountOutExpected = 15017460913207458126311;
+    address ASSET_IN = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address ASSET_OUT = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
+    bytes32 POOL_ID = 0xd4e2af4507b6b89333441c0c398edffb40f86f4d0001000000000000000002ab;
+    address POOL_ADDRESS = 0xd4E2af4507B6B89333441C0c398edfFB40f86f4D;
+    address TRADER = 0x06920C9fC643De77B99cB7670A944AD31eaAA260;
+    uint256 RESERVE_IN =51631307241259069889;
+    uint256 RESERVE_OUT=410893919;
+    uint256 AMOUNT_IN = 5000000000000000000;
+    uint256 amountOutExpected = 361787316415099392;
 
     
 
@@ -345,8 +345,10 @@ contract ContractTest is Test {
         uint256 weight_out =weights[1];// 250000000000000000;
         console.log("weight_in", weight_in);
         console.log("weight_out", weight_out);
-        
-        uint256 outGivenIn= _downscale(_calcOutGivenIn(balanceIn,weight_in,balanceOut,weight_out,amount), scalingFactorOut);
+        uint256 outGivenIn=_calcOutGivenIn(balanceIn,weight_in,balanceOut,weight_out,amount);
+        console.log("outGivenIn", outGivenIn);
+        outGivenIn= _downscale(outGivenIn, scalingFactorOut);
+        console.log("outGivenIn downscale", outGivenIn);
         console.log("testOutGivenIn - ",outGivenIn);
     }
 
