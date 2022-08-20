@@ -16,15 +16,15 @@ contract ContractTest is Test {
     uint256 MAX_POW_RELATIVE_ERROR = 10000; // 10^(-14)
 
     // Minimum base for the power function when the exponent is 'free' (larger than ONE).
-    address ASSET_IN = 0x0bc529c00C6401aEF6D220BE8C6Ea1667F6Ad93e;
-    address ASSET_OUT = 0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984;
-    bytes32 POOL_ID = 0xa33e376932b2c01323f0a7f9bbe0a53f7662b2e900010000000000000000031d;
-    address POOL_ADDRESS = 0xa33E376932b2c01323F0A7f9bBe0a53F7662B2E9;
-    address TRADER = 0xE174c389249b0E3a4eC84d2A5667Aa4920CB77DE;
-    uint256 RESERVE_IN =18306627041390930762;
-    uint256 RESERVE_OUT=24554446274419356204150;
-    uint256 AMOUNT_IN = 90680232378588991;
-    uint256 amountOutExpected = 120751729640626939754;
+    address ASSET_IN = 0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5;
+    address ASSET_OUT = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
+    bytes32 POOL_ID = 0xc45d42f801105e861e86658648e3678ad7aa70f900010000000000000000011e;
+    address POOL_ADDRESS = 0xc45D42f801105e861e86658648e3678aD7aa70f9;
+    address TRADER = 0x4E249375C7C6225cEe6e7AA099D9c367933E86D9;
+    uint256 RESERVE_IN =1326673419288719;
+    uint256 RESERVE_OUT=8402147567138834432425114;
+    uint256 AMOUNT_IN = 1190769574605;
+    uint256 amountOutExpected = 15017460913207458126311;
 
     
 
@@ -408,6 +408,10 @@ contract ContractTest is Test {
         //console.log("recomputed", recomputed);
         //console.log("Diff", recomputed - amountOutReal);
         assertTrue(amountOutReal > 0);
+        int256 a=100;
+        int256 b=-33;
+        int256 c=a%b;
+        console.log(c> 0 ? "+" : "-",uint256(abs(c)));
     }
 
 
@@ -559,25 +563,25 @@ contract ContractTest is Test {
             /*console.log("LN_36_LOWER_BOUND",LN_36_LOWER_BOUND);
             console.log("LN_36_UPPER_BOUND",LN_36_UPPER_BOUND);*/
             int256 ln_36_x = _ln_36(x_int256);
-            console.log("ln_36_x",uint256(ln_36_x));
+            console.log("ln_36_x",ln_36_x> 0 ? "+" : "-",uint256(abs(ln_36_x)));
 
             // ln_36_x has 36 decimal places, so multiplying by y_int256 isn't as straightforward, since we can't just
             // bring y_int256 to 36 decimal places, as it might overflow. Instead, we perform two 18 decimal
             // multiplications and add the results: one with the first 18 decimals of ln_36_x, and one with the
             // (downscaled) last 18 decimals.
             logx_times_y = ((ln_36_x / ONE_18) * y_int256 + ((ln_36_x % ONE_18) * y_int256) / ONE_18);
-            console.log("logx_times_y",uint256(logx_times_y));
+            console.log("logx_times_y",logx_times_y> 0 ? "+" : "-",uint256(abs(logx_times_y)));
         } else {
             console.log("ELSE");
             logx_times_y = _ln(x_int256) * y_int256;
         }
         logx_times_y /= ONE_18;
-        console.log("logx_times_y",uint256(logx_times_y));
+        console.log("logx_times_y",logx_times_y> 0 ? "+" : "-",uint256(abs(logx_times_y)));
 
         // Finally, we compute exp(y * ln(x)) to arrive at x^y
 
         uint256 rr = uint256(exp(logx_times_y));
-        console.log("logx_times_y",rr);
+        console.log("logx_times_y",rr> 0 ? "+" : "-",rr);
         return rr;
     }
 
