@@ -86,6 +86,7 @@ interface IBasePool {
     function getPoolId() external view returns (bytes32);
 }
 
+
 interface IGeneralPool is IBasePool {
     function onSwap(
          SwapRequest memory request,

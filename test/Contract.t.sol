@@ -3,12 +3,16 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
 import "../src/Contract.sol";
+import "../src/Math.sol";
+import "../src/FixedPoint.sol";
 //import "../src/LogExpMath.sol";
 import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 
 
 
 contract ContractTest is Test {
+    using FixedPoint for uint256;
+
     TestSwap c;
     uint256 ONE = 1e18;
     uint256 TWO = 2 * ONE;
@@ -16,21 +20,263 @@ contract ContractTest is Test {
     uint256 MAX_POW_RELATIVE_ERROR = 10000; // 10^(-14)
 
     // Minimum base for the power function when the exponent is 'free' (larger than ONE).
-    address ASSET_IN = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
-    address ASSET_OUT = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
-    bytes32 POOL_ID = 0xd4e2af4507b6b89333441c0c398edffb40f86f4d0001000000000000000002ab;
-    address POOL_ADDRESS = 0xd4E2af4507B6B89333441C0c398edfFB40f86f4D;
-    address TRADER = 0x06920C9fC643De77B99cB7670A944AD31eaAA260;
-    uint256 RESERVE_IN =51631307241259069889;
-    uint256 RESERVE_OUT=410893919;
-    uint256 AMOUNT_IN = 5000000000000000000;
-    uint256 amountOutExpected = 361787316415099392;
-
+    address ASSET_IN = 0x0C10bF8FcB7Bf5412187A595ab97a3609160b5c6;
+    uint256 DECIMALS_IN = 18;
+    address ASSET_OUT = 0x853d955aCEf822Db058eb8505911ED77F175b99e;
+    uint256 DECIMALS_OUT = 18;
+    bytes32 POOL_ID = 0xf93579002dbe8046c43fefe86ec78b1112247bb80000000000000000000002bc;
+    address POOL_ADDRESS = 0xF93579002DBE8046c43FEfE86ec78b1112247BB8;
+    uint256 AMPLIFICATION_PARAMETER =200000;
+    uint256 INVARIANT = 30002993410975718476001;
+    address TRADER = 0x30741289523c2e4d2A62c7D6722686D14E723851;
+    uint256 RESERVE_IN =11962586436716673476845;
+    uint256 RESERVE_OUT=8816171942;
+    uint256 AMOUNT_IN = 100e18;
+    uint256 amountOutExpected = AMOUNT_IN;
+    uint256 _AMP_PRECISION = 1e3;
     
 
     function setUp() public {
         c = new TestSwap();
     }
+    function computeBalv(
+        uint256 amount,
+        uint256 swapFeePercentage,
+        uint256 reserveIn,
+        uint256 reserveOut,
+        uint256 weightIn,
+        uint256 weightOut
+    ) public returns (uint256) {
+        console.log("reserveIn", reserveIn);
+        console.log("reserveOut", reserveOut);
+        /*console.log(
+            "reserveIn - _upscale",
+            _upscale(
+                reserveIn,
+                _computeScalingFactor(
+                    0x0F5D2fB29fb7d3CFeE444a200298f468908cC942
+                )
+            )
+        );
+        console.log(
+            "reserveOut - _upscale",
+            _upscale(
+                reserveOut,
+                _computeScalingFactor(
+                    0x3845badAde8e6dFF049820680d1F14bD3903a5d0
+                )
+            )
+        );*/
+        console.log("weightIn", weightIn);
+        console.log("weightOut", weightOut);
+        console.log("amount", amount);
+        uint256 feeAmount = mulUp(amount, swapFeePercentage);
+        console.log("feeAmount", feeAmount);
+        amount = amount - feeAmount;
+        console.log("amount post fee", amount);
+        amount = _upscale(amount, _computeScalingFactor(ASSET_IN));
+        console.log("amount post upscale", amount);
+        uint256 denominator = reserveIn + amount;
+        uint256 base = divUp(reserveIn, denominator);
+        uint256 exponent = divDown(weightIn, weightOut);
+        uint256 power = powUp(base, exponent);
+        uint256 c = complement(power);
+        uint256 result = mulDown(reserveOut, c);
+        /*uint256 denominator=reserveIn + amount;
+        uint256 base = (ONE*reserveIn)/denominator;
+        uint256 exponent = weightIn/weightOut;
+        uint256 power = (base)**(exponent);
+        uint256 complement = ONE-power;
+        uint256 result =  reserveOut * complement;*/
+        console.log("denominator", denominator);
+        console.log("base", base);
+        console.log("exponent", exponent);
+        console.log("power", power);
+        console.log("complement", c);
+        console.log("result", result);
+        return result;
+    }
+
+    function _calcOutGivenIn(
+        uint256 balanceIn,
+        uint256 weightIn,
+        uint256 balanceOut,
+        uint256 weightOut,
+        uint256 amountIn
+    )  public returns (uint256) {
+        /**********************************************************************************************
+        // outGivenIn                                                                                //
+        // aO = amountOut                                                                            //
+        // bO = balanceOut                                                                           //
+        // bI = balanceIn              /      /            bI             \    (wI / wO) \           //
+        // aI = amountIn    aO = bO * |  1 - | --------------------------  | ^            |          //
+        // wI = weightIn               \      \       ( bI + aI )         /              /           //
+        // wO = weightOut                                                                            //
+        **********************************************************************************************/
+
+        // Amount out, so we round down overall.
+
+        // The multiplication rounds down, and the subtrahend (power) rounds up (so the base rounds up too).
+        // Because bI / (bI + aI) <= 1, the exponent rounds down.
+
+        // Cannot exceed maximum in ratio
+
+        uint256 denominator = balanceIn +amountIn;
+        console.log("denominator", denominator);
+        uint256 base = divUp(balanceIn,denominator);
+        console.log("base", base);
+        uint256 exponent = divDown(weightIn,weightOut);
+        console.log("exponent", exponent);
+        uint256 power = powUp(base,exponent);
+        console.log("power", power);
+        uint256 c=complement(power);
+        console.log("c", c);
+        return mulDown(balanceOut,c);
+    }
+
+    function _calcOutGivenInStable(
+        uint256 balanceIn,
+        uint256 weightIn,
+        uint256 balanceOut,
+        uint256 weightOut,
+        uint256 amountIn
+    )  public returns (uint256) {
+        return 10;
+    }
+
+    function getBalanceAndManaged(IVault vault, bytes32 POOL_ID, address targetAddress) public  returns (uint256) {
+        address[] memory a;
+        uint256[] memory b;
+        uint256 c;
+        console.log("START");
+        (a, b, c) = vault.getPoolTokens(POOL_ID);
+        uint256 cash;
+        uint256 managed;
+        uint256 lastChangeBlock;
+        address assetManager;
+        for (uint i=0; i<a.length;i++){
+            (cash, managed, lastChangeBlock, assetManager) = vault.getPoolTokenInfo(POOL_ID, IERC201(a[i]));
+            //console.log(cash);
+            if(a[i] == targetAddress){
+                console.log("cash",cash);
+                console.log("managed",managed);
+                console.log("b",b[i]);
+                return b[i];
+            }
+        }
+        console.log("END");
+    }
+
+    function testOutGivenIn() public{
+       // uint256 feeAmount = mulUp(AMOUNT_IN, 400000000000000);
+        //AMOUNT_IN = AMOUNT_IN.sub(feeAmount);
+        AMOUNT_IN = _upscale(AMOUNT_IN, _computeScalingFactor(ASSET_IN));
+        uint256 finalBalanceOut =0;
+        uint256[] memory balances = new uint256[](3);
+        balances[0] = _upscale(9283468752741447663073, _computeScalingFactor(ASSET_IN));
+        balances[1] = _upscale(11962586436716673476845, _computeScalingFactor(ASSET_OUT));
+        balances[2] = _upscale(8816171942, _computeScalingFactor(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48));
+        console.log("balances[0]",balances[0] );
+        console.log("balances[1]",balances[1] );
+        console.log("balances[2]",balances[2] );
+        uint256 tokenIndexIn=0;
+        uint256 tokenIndexOut=1;
+
+        uint256 amplificationParameter = AMPLIFICATION_PARAMETER;
+        uint256 invariant = INVARIANT;
+        console.log("invariant before", invariant);
+        invariant = calculateInvariant(amplificationParameter, balances);
+        console.log("invariant after", invariant);
+        /*finalBalanceOut = getTokenBalanceGivenInvariantAndAllOtherBalances(
+            amplificationParameter,
+            balances,
+            invariant,
+            tokenIndexOut
+        );
+        console.log("testOutGivenIn - finalBalanceOut before adding in",finalBalanceOut/(10**DECIMALS_OUT));
+        */
+        balances[tokenIndexIn] = balances[tokenIndexIn].add(AMOUNT_IN);
+
+        console.log("testOutGivenIn - amount in ",AMOUNT_IN);
+       
+
+        finalBalanceOut = getTokenBalanceGivenInvariantAndAllOtherBalances(
+            amplificationParameter,
+            balances,
+            invariant,
+            tokenIndexOut
+        );
+        console.log("testOutGivenIn - finalBalanceOut",finalBalanceOut);///(10**DECIMALS_OUT));
+        console.log("testOutGivenIn - RESERVE_OUT    ",balances[tokenIndexOut]);///(10**DECIMALS_OUT));
+
+        uint256 outGivenIn = balances[tokenIndexOut].sub(finalBalanceOut).sub(1);
+        console.log("testOutGivenIn - outGivenIn  ",outGivenIn);
+    }
+
+   
+    function toestVaultSwap() public {
+
+        address trader = TRADER;
+        vm.startPrank(trader);
+
+        IERC201 tokenIn = IERC201(ASSET_IN);
+        IERC201 tokenOut = IERC201(ASSET_OUT);
+        //15258983
+        tokenIn.approve(vaultAddress, AMOUNT_IN);
+
+        IVault vault = IVault(vaultAddress);
+        //RESERVE_IN = getBalanceAndManaged(vault, POOL_ID, ASSET_IN);
+        //RESERVE_OUT = getBalanceAndManaged(vault, POOL_ID, ASSET_OUT);
+
+        //uint256 spe = uint256(POOL_ID >> (10 * 8)) & (2**(2 * 8) - 1);
+        //console.log("RESERVE_IN",RESERVE_IN);
+        SingleSwap memory singleSwap = SingleSwap(
+            POOL_ID,
+            SwapKind.GIVEN_IN,
+            IAsset(ASSET_IN),
+            IAsset(ASSET_OUT),
+            AMOUNT_IN,
+            "0x"
+        );
+
+        FundManagement memory funds = FundManagement(
+            trader,
+            false,
+            payable(trader),
+            false
+        );
+
+        /*uint256 recomputed = _downscale(computeBalv(
+            amountIn,
+            5000000000000000,
+            RESERVE_IN,
+            RESERVE_OUT,
+            200000000000000000,
+            200000000000000000
+        ),_computeScalingFactor(ASSET_OUT));*/
+
+
+        //console.log("B TS", block.timestamp);
+        //console.log("B NB", block.number);
+        console.log("HERE BEFORE SWAP");
+        uint256 amountOutReal = vault.swap(
+            singleSwap,
+            funds,
+            0,
+            block.timestamp + 10
+        );
+        console.log("vault.swap - AMOUNT_IN",AMOUNT_IN/ (10**DECIMALS_IN));
+        console.log("vault.swap - amountCalculated", amountOutReal/(10**DECIMALS_OUT));
+        console.log("amountOutExpected", amountOutExpected);
+        //console.log("recomputed", recomputed);
+        //console.log("Diff", recomputed - amountOutReal);
+        vm.stopPrank();
+
+        assertTrue(amountOutReal > 0);
+    }
+
+
+
 
     function _computeScalingFactor(address token)
         
@@ -197,274 +443,6 @@ contract ContractTest is Test {
         return (x < ONE) ? (ONE - x) : 0;
     }
 
-    function computeBalv(
-        uint256 amount,
-        uint256 swapFeePercentage,
-        uint256 reserveIn,
-        uint256 reserveOut,
-        uint256 weightIn,
-        uint256 weightOut
-    ) public returns (uint256) {
-        console.log("reserveIn", reserveIn);
-        console.log("reserveOut", reserveOut);
-        /*console.log(
-            "reserveIn - _upscale",
-            _upscale(
-                reserveIn,
-                _computeScalingFactor(
-                    0x0F5D2fB29fb7d3CFeE444a200298f468908cC942
-                )
-            )
-        );
-        console.log(
-            "reserveOut - _upscale",
-            _upscale(
-                reserveOut,
-                _computeScalingFactor(
-                    0x3845badAde8e6dFF049820680d1F14bD3903a5d0
-                )
-            )
-        );*/
-        console.log("weightIn", weightIn);
-        console.log("weightOut", weightOut);
-        console.log("amount", amount);
-        uint256 feeAmount = mulUp(amount, swapFeePercentage);
-        console.log("feeAmount", feeAmount);
-        amount = amount - feeAmount;
-        console.log("amount post fee", amount);
-        amount = _upscale(amount, _computeScalingFactor(ASSET_IN));
-        console.log("amount post upscale", amount);
-        uint256 denominator = reserveIn + amount;
-        uint256 base = divUp(reserveIn, denominator);
-        uint256 exponent = divDown(weightIn, weightOut);
-        uint256 power = powUp(base, exponent);
-        uint256 c = complement(power);
-        uint256 result = mulDown(reserveOut, c);
-        /*uint256 denominator=reserveIn + amount;
-        uint256 base = (ONE*reserveIn)/denominator;
-        uint256 exponent = weightIn/weightOut;
-        uint256 power = (base)**(exponent);
-        uint256 complement = ONE-power;
-        uint256 result =  reserveOut * complement;*/
-        console.log("denominator", denominator);
-        console.log("base", base);
-        console.log("exponent", exponent);
-        console.log("power", power);
-        console.log("complement", c);
-        console.log("result", result);
-        return result;
-    }
-
-    function _calcOutGivenIn(
-        uint256 balanceIn,
-        uint256 weightIn,
-        uint256 balanceOut,
-        uint256 weightOut,
-        uint256 amountIn
-    )  public returns (uint256) {
-        /**********************************************************************************************
-        // outGivenIn                                                                                //
-        // aO = amountOut                                                                            //
-        // bO = balanceOut                                                                           //
-        // bI = balanceIn              /      /            bI             \    (wI / wO) \           //
-        // aI = amountIn    aO = bO * |  1 - | --------------------------  | ^            |          //
-        // wI = weightIn               \      \       ( bI + aI )         /              /           //
-        // wO = weightOut                                                                            //
-        **********************************************************************************************/
-
-        // Amount out, so we round down overall.
-
-        // The multiplication rounds down, and the subtrahend (power) rounds up (so the base rounds up too).
-        // Because bI / (bI + aI) <= 1, the exponent rounds down.
-
-        // Cannot exceed maximum in ratio
-
-        uint256 denominator = balanceIn +amountIn;
-        console.log("denominator", denominator);
-        uint256 base = divUp(balanceIn,denominator);
-        console.log("base", base);
-        uint256 exponent = divDown(weightIn,weightOut);
-        console.log("exponent", exponent);
-        uint256 power = powUp(base,exponent);
-        console.log("power", power);
-        uint256 c=complement(power);
-        console.log("c", c);
-        return mulDown(balanceOut,c);
-    }
-
-    function getBalanceAndManaged(IVault vault, bytes32 POOL_ID, address targetAddress) public  returns (uint256) {
-        address[] memory a;
-        uint256[] memory b;
-        uint256 c;
-        console.log("START");
-        (a, b, c) = vault.getPoolTokens(POOL_ID);
-        uint256 cash;
-        uint256 managed;
-        uint256 lastChangeBlock;
-        address assetManager;
-        for (uint i=0; i<a.length;i++){
-            (cash, managed, lastChangeBlock, assetManager) = vault.getPoolTokenInfo(POOL_ID, IERC201(a[i]));
-            //console.log(cash);
-            if(a[i] == targetAddress){
-                console.log("cash",cash);
-                console.log("managed",managed);
-                console.log("b",b[i]);
-                return b[i];
-            }
-        }
-        console.log("END");
-    }
-
-    function testOutGivenIn() public{
-        IGeneralPool pool = IGeneralPool(POOL_ADDRESS);
-        uint256 swapFeePercentage = pool.getSwapFeePercentage();
-
-        uint256 amountInit = AMOUNT_IN;
-        uint256 feeAmount = mulUp(amountInit, swapFeePercentage);
-        console.log("feeAmount", feeAmount);
-        uint256 amount = amountInit - feeAmount;
-        console.log("amount post fee", amount);
-        uint256 scalingFactorIn = _computeScalingFactor(ASSET_IN);
-        uint256 scalingFactorOut = _computeScalingFactor(ASSET_OUT);
-        console.log("scalingFactorIn",scalingFactorIn);
-        console.log("scalingFactorOut",scalingFactorOut);
-        amount = _upscale(amount, scalingFactorIn);
-        IVault vault = IVault(vaultAddress);
-        console.log("R_IN", RESERVE_IN);
-        RESERVE_IN = getBalanceAndManaged(vault, POOL_ID, ASSET_IN);
-        console.log("R_IN", RESERVE_IN);
-        console.log("R_OUT", RESERVE_OUT);
-        RESERVE_OUT = getBalanceAndManaged(vault, POOL_ID, ASSET_OUT);
-        console.log("R_OUT", RESERVE_OUT);
-        uint256 balanceIn = RESERVE_IN;
-        uint256 balanceOut = RESERVE_OUT;
-        balanceIn = _upscale(balanceIn, scalingFactorIn);
-        balanceOut = _upscale(balanceOut,scalingFactorOut);
-        uint256[] memory weights = pool.getNormalizedWeights();
-        uint256 weight_in =weights[0];// 250000000000000000;
-        uint256 weight_out =weights[1];// 250000000000000000;
-        console.log("weight_in", weight_in);
-        console.log("weight_out", weight_out);
-        uint256 outGivenIn=_calcOutGivenIn(balanceIn,weight_in,balanceOut,weight_out,amount);
-        console.log("outGivenIn", outGivenIn);
-        outGivenIn= _downscale(outGivenIn, scalingFactorOut);
-        console.log("outGivenIn downscale", outGivenIn);
-        console.log("testOutGivenIn - ",outGivenIn);
-    }
-
-   
-    function testVaultSwap() public {
-        uint256 amountIn = AMOUNT_IN;
-
-        address trader = TRADER;
-        vm.startPrank(trader);
-
-        IERC201 tokenIn = IERC201(ASSET_IN);
-        IERC201 tokenOut = IERC201(ASSET_OUT);
-        //15258983
-        tokenIn.approve(vaultAddress, 1000000+amountIn);
-
-        IVault vault = IVault(vaultAddress);
-        //RESERVE_IN = getBalanceAndManaged(vault, POOL_ID, ASSET_IN);
-        //RESERVE_OUT = getBalanceAndManaged(vault, POOL_ID, ASSET_OUT);
-
-        //uint256 spe = uint256(POOL_ID >> (10 * 8)) & (2**(2 * 8) - 1);
-        //console.log("spe",spe);
-        SingleSwap memory singleSwap = SingleSwap(
-            POOL_ID,
-            SwapKind.GIVEN_IN,
-            IAsset(ASSET_IN),
-            IAsset(ASSET_OUT),
-            amountIn,
-            "0x"
-        );
-
-        FundManagement memory funds = FundManagement(
-            trader,
-            false,
-            payable(trader),
-            false
-        );
-
-        /*uint256 recomputed = _downscale(computeBalv(
-            amountIn,
-            5000000000000000,
-            RESERVE_IN,
-            RESERVE_OUT,
-            200000000000000000,
-            200000000000000000
-        ),_computeScalingFactor(ASSET_OUT));*/
-
-
-        //console.log("B TS", block.timestamp);
-        //console.log("B NB", block.number);
-        uint256 amountOutReal = vault.swap(
-            singleSwap,
-            funds,
-            1,
-            block.timestamp + 1000000000
-        );
-        vm.stopPrank();
-        console.log("vault.swap - amountCalculated", amountOutReal);
-        console.log("amountOutExpected", amountOutExpected);
-        //console.log("recomputed", recomputed);
-        //console.log("Diff", recomputed - amountOutReal);
-        assertTrue(amountOutReal > 0);
-        int256 a=100;
-        int256 b=-33;
-        int256 c=a%b;
-        console.log(c> 0 ? "+" : "-",uint256(abs(c)));
-    }
-
-
-    function testOnSwap() public {
-        uint256 amountIn = AMOUNT_IN;
-
-        address trader = TRADER;
-        vm.startPrank(trader);
-
-        IERC201 tokenIn = IERC201(ASSET_IN);
-        IERC201 tokenOut = IERC201(ASSET_OUT);
-        //15314876
-        tokenIn.approve(vaultAddress, 1000000+amountIn);
-
-        IVault vault = IVault(vaultAddress);
-
-        SingleSwap memory singleSwap = SingleSwap(
-            POOL_ID,
-            SwapKind.GIVEN_IN,
-            IAsset(ASSET_IN),
-            IAsset(ASSET_OUT),
-            amountIn,
-            "0x"
-        );
-
-        SwapRequest memory poolRequest;
-        poolRequest.poolId = singleSwap.poolId;
-        poolRequest.kind = singleSwap.kind;
-        poolRequest.tokenIn = tokenIn;
-        poolRequest.tokenOut = tokenOut;
-        poolRequest.amount = singleSwap.amount;
-        poolRequest.userData = singleSwap.userData;
-        poolRequest.from = trader;
-        poolRequest.to = payable(trader);
-
-        uint256 amountCalculated;
-
-        IGeneralPool pool = IGeneralPool(POOL_ADDRESS);
-        //RESERVE_IN = getBalanceAndManaged(vault, POOL_ID, ASSET_IN);
-        //RESERVE_OUT = getBalanceAndManaged(vault, POOL_ID, ASSET_OUT);
-        amountCalculated = pool.onSwap(poolRequest, RESERVE_IN, RESERVE_OUT);
-        console.log("OnSwap - amountCalculated",amountCalculated);       
-        uint256 diff;
-        if(amountCalculated>amountOutExpected){
-            diff = amountCalculated-amountOutExpected;
-        }else{
-            diff = amountOutExpected-amountCalculated;
-        }
-        console.log("OnSwap - DIFF",diff);
-
-    }
 
 
     // All fixed point multiplications and divisions are inlined. This means we need to divide by ONE when multiplying
@@ -981,6 +959,138 @@ contract ContractTest is Test {
 
     function abs(int x) private pure returns (int) {
         return x >= 0 ? x : -x;
+    }
+
+
+    function getTokenBalanceGivenInvariantAndAllOtherBalances(
+        uint256 amplificationParameter,
+        uint256[] memory balances,
+        uint256 invariant,
+        uint256 tokenIndex
+    ) public returns (uint256) {
+        // Rounds result up overall
+
+        uint256 ampTimesTotal = amplificationParameter * balances.length;
+        uint256 sum = balances[0];
+        uint256 P_D = balances[0] * balances.length;
+        console.log("balances[0]",balances[0]);
+        console.log("N tokens",balances.length);
+        console.log("invariant",invariant);
+        console.log("P_D", P_D);
+        uint256 bf;
+        for (uint256 j = 1; j < balances.length; j++) {
+            bf = Math.mul(Math.mul(P_D, balances[j]), balances.length);
+            console.log("    bf i",bf);
+            P_D = Math.divDown(Math.mul(Math.mul(P_D, balances[j]), balances.length), invariant);
+            console.log("    P_D i",P_D);
+            sum = sum.add(balances[j]);
+        }
+        console.log("sum", sum);
+        console.log("P_D", P_D);
+        // No need to use safe math, based on the loop above `sum` is greater than or equal to `balances[tokenIndex]`
+        sum = sum - balances[tokenIndex];
+
+        uint256 inv2 = Math.mul(invariant, invariant);
+        // We remove the balance from c by multiplying it
+        uint256 c = Math.mul(
+            Math.mul(Math.divUp(inv2, Math.mul(ampTimesTotal, P_D)), _AMP_PRECISION),
+            balances[tokenIndex]
+        );
+        uint256 b = sum.add(Math.mul(Math.divDown(invariant, ampTimesTotal), _AMP_PRECISION));
+        console.log("c", c);
+        console.log("b", b);
+
+        // We iterate to find the balance
+        uint256 prevTokenBalance = 0;
+        // We multiply the first iteration outside the loop with the invariant to set the value of the
+        // initial approximation.
+        uint256 tokenBalance = Math.divUp(inv2.add(c), invariant.add(b));
+        console.log("tokenBalance",tokenBalance);
+        for (uint256 i = 0; i < 255; i++) {
+            prevTokenBalance = tokenBalance;
+
+            tokenBalance = Math.divUp(
+                Math.mul(tokenBalance, tokenBalance).add(c),
+                Math.mul(tokenBalance, 2).add(b).sub(invariant)
+            );
+            console.log("    tokenBalance i",tokenBalance);
+
+            if (tokenBalance > prevTokenBalance) {
+                if (tokenBalance - prevTokenBalance <= 1) {
+                    return tokenBalance;
+                }
+            } else if (prevTokenBalance - tokenBalance <= 1) {
+                return tokenBalance;
+            }
+        }
+
+
+        revert("REVERTTT");
+    }
+
+
+    function calculateInvariant(uint256 amplificationParameter, uint256[] memory balances)
+        public
+        returns (uint256)
+    {
+        /**********************************************************************************************
+        // invariant                                                                                 //
+        // D = invariant                                                  D^(n+1)                    //
+        // A = amplification coefficient      A  n^n S + D = A D n^n + -----------                   //
+        // S = sum of balances                                             n^n P                     //
+        // P = product of balances                                                                   //
+        // n = number of tokens                                                                      //
+        **********************************************************************************************/
+
+        // Always round down, to match Vyper's arithmetic (which always truncates).
+
+        uint256 sum = 0; // S in the Curve version
+        uint256 numTokens = balances.length;
+        for (uint256 i = 0; i < numTokens; i++) {
+            sum = sum.add(balances[i]);
+        }
+        if (sum == 0) {
+            return 0;
+        }
+
+        uint256 prevInvariant; // Dprev in the Curve version
+        uint256 invariant = sum; // D in the Curve version
+        uint256 ampTimesTotal = amplificationParameter * numTokens; // Ann in the Curve version
+
+        for (uint256 i = 0; i < 255; i++) {
+            uint256 D_P = invariant;
+
+            for (uint256 j = 0; j < numTokens; j++) {
+                // (D_P * invariant) / (balances[j] * numTokens)
+                D_P = Math.divDown(Math.mul(D_P, invariant), Math.mul(balances[j], numTokens));
+            }
+
+            prevInvariant = invariant;
+
+            invariant = Math.divDown(
+                Math.mul(
+                    // (ampTimesTotal * sum) / AMP_PRECISION + D_P * numTokens
+                    (Math.divDown(Math.mul(ampTimesTotal, sum), _AMP_PRECISION).add(Math.mul(D_P, numTokens))),
+                    invariant
+                ),
+                // ((ampTimesTotal - _AMP_PRECISION) * invariant) / _AMP_PRECISION + (numTokens + 1) * D_P
+                (
+                    Math.divDown(Math.mul((ampTimesTotal - _AMP_PRECISION), invariant), _AMP_PRECISION).add(
+                        Math.mul((numTokens + 1), D_P)
+                    )
+                )
+            );
+
+            if (invariant > prevInvariant) {
+                if (invariant - prevInvariant <= 1) {
+                    return invariant;
+                }
+            } else if (prevInvariant - invariant <= 1) {
+                return invariant;
+            }
+        }
+
+        revert("Errors.STABLE_INVARIANT_DIDNT_CONVERGE!");
     }
 
 }
